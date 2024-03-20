@@ -1,0 +1,93 @@
+#part B 
+#code part
+import pandas as pd
+import itertools
+
+# Read input datasets
+input_data_1 = pd.read_csv("part_b_input_dataset_1.csv")
+input_data_2 = pd.read_csv("part_b_input_dataset_2.csv")
+
+# Define vehicle capacity for each dataset
+vehicle_capacity_1 = 20
+vehicle_capacity_2 = 30
+
+# Function to calculate distance between two points
+def calculate_distance(point1, point2):
+    return ((point1['lng'] - point2['lng']) * 2 + (point1['lat'] - point2['lat']) * 2) ** 0.5
+
+# Function to generate all possible routes for a given dataset and vehicle capacity
+def generate_routes(input_data, vehicle_capacity):
+    # Create depot node
+    depot = {'order_id': 0, 'lng': input_data['depot_lng'].iloc[0], 'lat': input_data['depot_lat'].iloc[0]}
+    
+    # Create list of customer nodes
+    customers = input_data[['order_id', 'lng', 'lat']].to_dict('records')
+    
+    # Generate all possible combinations of customer orders
+    all_routes = []
+    for order_combination in itertools.permutations(customers[1:], len(customers) - 1):
+        route = [depot] + list(order_combination) + [depot]
+        # Check if route satisfies vehicle capacity constraint
+        if len(route) <= vehicle_capacity + 2:
+            all_routes.append(route)
+    
+    return all_routes
+
+# Function to calculate total distance travelled for a route
+def calculate_total_distance(route):
+    total_distance = 0
+    for i in range(len(route) - 1):
+        total_distance += calculate_distance(route[i], route[i + 1])
+    return total_distance
+
+# Function to find the best route combination with minimum total distance
+def find_best_routes(routes, vehicle_capacity):
+    min_total_distance = float('inf')
+    best_routes = []
+    for route_combination in itertools.combinations(routes, 2):
+        combined_route = route_combination[0] + route_combination[1][1:-1]
+        if len(combined_route) <= vehicle_capacity + 2:
+            total_distance = calculate_total_distance(combined_route)
+            if total_distance < min_total_distance:
+                min_total_distance = total_distance
+                best_routes = route_combination
+    return best_routes
+
+# Generate routes for dataset 1
+routes_1 = generate_routes(input_data_1, vehicle_capacity_1)
+
+# Find the best routes for dataset 1
+best_routes_1 = find_best_routes(routes_1, vehicle_capacity_1)
+
+# Generate routes for dataset 2
+routes_2 = generate_routes(input_data_2, vehicle_capacity_2)
+
+# Find the best routes for dataset 2
+best_routes_2 = find_best_routes(routes_2, vehicle_capacity_2)
+
+# Write output datasets
+output_data_1 = pd.DataFrame(best_routes_1[0], columns=["order_id", "lng", "lat"])
+output_data_1["vehicle_num"] = 1
+output_data_1["dlvr_seq_num"] = output_data_1.index + 1
+
+output_data_2 = pd.DataFrame(best_routes_2[0], columns=["order_id", "lng", "lat"])
+output_data_2["vehicle_num"] = 1
+output_data_2["dlvr_seq_num"] = output_data_2.index + 1
+
+output_data_1.to_csv("part_b_output_dataset_1.csv", index=False)
+output_data_2.to_csv("part_b_output_dataset_2.csv", index=False)
+
+# Calculate delivery route distance travelled across vehicles for each dataset
+total_distance_1 = calculate_total_distance(best_routes_1[0])
+total_distance_2 = calculate_total_distance(best_routes_2[0])
+
+# Write delivery route distance travelled to a file
+routes_distance_data = {
+    "Dataset": ["part_b_input_dataset_1", "part_b_input_dataset_2"],
+    "Vehicle 1 Route Distance": [total_distance_1, total_distance_2],
+    "Vehicle 2 Route Distance": [total_distance_1, total_distance_2],
+    "Total Distance Travelled": [total_distance_1 + total_distance_2] * 2
+}
+
+routes_distance_df = pd.DataFrame(routes_distance_data)
+routes_distance_df.to_csv("part_b_routes_distance_travelled.csv", index=False)
